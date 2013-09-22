@@ -139,7 +139,6 @@ public class PlayerAI implements Player {
 		        	HashMap<Point, Bomb> bombLocationsCopy = (HashMap<Point, Bomb>)bombLocations.clone();
 		        	bombLocationsCopy.put(curPosition, b);
 		        	generateBombMap(map, bombLocationsCopy, searchBombsCopy, bombMapCopy);
-//		        	printBombMap(bombMapCopy);
 		        	// If safe, then place bomb.
 		        	Point directionToSafeSpaceHyp = pathToSafeSpace(curPosition, map, bombMapCopy);
 		        	if (directionToSafeSpaceHyp != null && bombMap[curPosition.x][curPosition.y] == 99) {
@@ -225,8 +224,20 @@ public class PlayerAI implements Player {
     		        		bombMove = true;
     		        	}
     	        	}
-    	        	else if (true) {
-//    	        		phase = 2;
+    	        	else if (directionToNearestBlock == null) {
+    	        		boolean blocksLeft = false;
+    	        		for (int i = 0; i < map.length; i++) {
+    	        			for (int j = 0; j < map[0].length; j++) {
+    	        				if (map[i][j] == MapItems.BLOCK) {
+    	        					blocksLeft = true;
+    	        					i = map.length;
+    	        					j = map[0].length;
+    	        				}
+    	        			}
+    	        		}
+    	        		if (!blocksLeft) {
+    	        			phase = 2;	// Move to final phase.
+    	        		}
     	        	}
     	        	
             	}
@@ -250,25 +261,30 @@ public class PlayerAI implements Player {
 	                    }
 	                }
 	            }
-	        	int[][] bombMapCopy = new int[map.length][map[0].length];
-	        	SearchBomb searchBombsCopy[] = new SearchBomb[bombCount + 1];
-	        	for (int i = 0; i < bombCount; i++) {
-	        		searchBombsCopy[i] = searchBombs[i].clone();
-	        		searchBombsCopy[i].traversed = false;
-	        	}
-	        	Bomb b = new Bomb(playerIndex, players[playerIndex].bombRange, 14);
-	        	SearchBomb hBomb = new SearchBomb(b, curPosition);
-	        	searchBombsCopy[bombCount] = hBomb;
-	        	HashMap<Point, Bomb> bombLocationsCopy = (HashMap<Point, Bomb>)bombLocations.clone();
-	        	bombLocationsCopy.put(curPosition, b);
-	        	generateBombMap(map, bombLocationsCopy, searchBombsCopy, bombMapCopy);
-//	        	printBombMap(bombMapCopy);
-	        	// If safe, then place bomb.
-	        	Point directionToSafeSpaceHyp = pathToSafeSpace(curPosition, map, bombMapCopy);
-	        	if (directionToSafeSpaceHyp != null && bombMap[curPosition.x][curPosition.y] == 99) {
-	        		// Drop bomb.
-	        		bombMove = true;
-	        	}
+        	}
+        	else {
+        		// Gravitate towards centre of map.
+        		Point directionToCentre = pathToCentre(curPosition, map, bombMap);
+        		move = Move.getDirection(directionToCentre.x, directionToCentre.y);
+        	}
+        	int[][] bombMapCopy = new int[map.length][map[0].length];
+        	SearchBomb searchBombsCopy[] = new SearchBomb[bombCount + 1];
+        	for (int i = 0; i < bombCount; i++) {
+        		searchBombsCopy[i] = searchBombs[i].clone();
+        		searchBombsCopy[i].traversed = false;
+        	}
+        	Bomb b = new Bomb(playerIndex, players[playerIndex].bombRange, 14);
+        	SearchBomb hBomb = new SearchBomb(b, curPosition);
+        	searchBombsCopy[bombCount] = hBomb;
+        	HashMap<Point, Bomb> bombLocationsCopy = (HashMap<Point, Bomb>)bombLocations.clone();
+        	bombLocationsCopy.put(curPosition, b);
+        	generateBombMap(map, bombLocationsCopy, searchBombsCopy, bombMapCopy);
+//        	printBombMap(bombMapCopy);
+        	// If safe, then place bomb.
+        	Point directionToSafeSpaceHyp = pathToSafeSpace(curPosition, map, bombMapCopy);
+        	if (directionToSafeSpaceHyp != null && bombMap[curPosition.x][curPosition.y] == 99) {
+        		// Drop bomb.
+        		bombMove = true;
         	}
         }
         
@@ -329,7 +345,7 @@ public class PlayerAI implements Player {
     }
 
     /**
-     * Uses the pathingBuffer.
+     * Functions using BFSs to find shortest paths to different places using the pathingBuffer.
      *
      * 
      */
@@ -343,6 +359,51 @@ public class PlayerAI implements Player {
     		Point currentPoint = open.remove();
     		    		
     		if (bombMap[currentPoint.x][currentPoint.y] == 99) {
+    			
+    			Point previous = null;
+    			for (Point current = currentPoint; 
+    					current != start;
+    					previous = current, current = pathingBuffer[current.x][current.y]) {
+    				
+    			}
+    			
+    			if (previous == null) {
+    				return new Point(0, 0);
+    			} else {
+    				Point dP = new Point(previous.x - start.x, previous.y - start.y);
+    				return dP;
+    			}
+    		}
+    		
+    		for (Move.Direction direction : Move.getAllMovingMoves()) {
+    			int x = currentPoint.x + direction.dx;
+    			int y = currentPoint.y + direction.dy;
+    			
+    			Point neighbour = new Point(x, y);
+    			
+    			if (map[x][y].isWalkable() && map[x][y] != MapItems.EXPLOSION && pathingBuffer[x][y] == null
+    					&& bombMap[x][y] > 2) {
+    				open.add(neighbour);
+        			pathingBuffer[x][y] = currentPoint;
+    			}
+    			
+    		}
+    	
+    	}
+    	
+    	return null;
+    }
+    
+    public Point pathToCentre(Point start, MapItems[][] map, int[][] bombMap) {
+    	resetPathingBuffer(pathingBuffer);
+    	
+    	Queue<Point> open = new LinkedList();
+    	open.add(start);
+    	
+    	while (!open.isEmpty()) {
+    		Point currentPoint = open.remove();
+    		    		
+    		if (currentPoint.x == 8 && currentPoint.y == 8) {
     			
     			Point previous = null;
     			for (Point current = currentPoint; 
@@ -521,6 +582,7 @@ public class PlayerAI implements Player {
     }
     
     /***
+     * Not used.
      * Note: That the pathingBuffer is reset and repurposed on each call.
      *
      * Based strongly on isThereAPath(...).
