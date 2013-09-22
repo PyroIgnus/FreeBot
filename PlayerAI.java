@@ -139,6 +139,7 @@ public class PlayerAI implements Player {
 		        	HashMap<Point, Bomb> bombLocationsCopy = (HashMap<Point, Bomb>)bombLocations.clone();
 		        	bombLocationsCopy.put(curPosition, b);
 		        	generateBombMap(map, bombLocationsCopy, searchBombsCopy, bombMapCopy);
+//		        	printBombMap(bombMapCopy);
 		        	// If safe, then place bomb.
 		        	Point directionToSafeSpaceHyp = pathToSafeSpace(curPosition, map, bombMapCopy);
 		        	if (directionToSafeSpaceHyp != null) {
@@ -248,7 +249,8 @@ public class PlayerAI implements Player {
     			
     			Point neighbour = new Point(x, y);
     			
-    			if (map[x][y].isWalkable() && map[x][y] != MapItems.EXPLOSION && pathingBuffer[x][y] == null) {
+    			if (map[x][y].isWalkable() && map[x][y] != MapItems.EXPLOSION && pathingBuffer[x][y] == null
+    					&& bombMap[x][y] > 2) {
     				open.add(neighbour);
         			pathingBuffer[x][y] = currentPoint;
     			}
