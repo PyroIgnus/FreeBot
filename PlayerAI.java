@@ -31,6 +31,8 @@ public class PlayerAI implements Player {
     int[][] bombMap;
     
     Point[][] pathingBuffer;
+    
+    int phase = 0; // Phase 0 = Mining, Phase 1 = Evasive
 
     /**
      * Gets called every time a new game starts.
@@ -45,6 +47,7 @@ public class PlayerAI implements Player {
         allBlocks = blocks;
         bombMap = new int[map.length][map[0].length];
         pathingBuffer = new Point[map.length][map[0].length];
+        phase = 0;
     }
 
     /**
@@ -73,6 +76,14 @@ public class PlayerAI implements Player {
          * Get Bomber's current position
          */
         Point curPosition = players[playerIndex].position;
+        int enemyIndex = 0;
+        if (playerIndex == 1) {
+        	enemyIndex = 0;
+        }
+        else {
+        	enemyIndex = 1;
+        }
+        Point enemyPosition = players[enemyIndex].position;
 
         /**
          * Keep track of which blocks are destroyed
@@ -94,21 +105,63 @@ public class PlayerAI implements Player {
         
         generateBombMap(map, bombLocations, searchBombs, bombMap);
         
+        Move.Direction move = Move.still;	// Default don't move.
+        
         // Phases (Mining or Full Evasive)
         // Mine (destroy nearby blocks and collect power ups).
-        
-        
-        // Start evasive maneuvers once a path between the players is made.
-        //if (isThereAPath())
+        if (phase == 0) {
+        	if (isThereAPath(curPosition, enemyPosition, map)) {
+        		//phase = 1;
+        	}
+        	// Look for power ups within reach first.
+        	Point directionToNearestPowerup = pathToNearestPowerup(curPosition, map, bombMap);
+        	if (directionToNearestPowerup != null) {
+        		move = Move.getDirection(directionToNearestPowerup.x, directionToNearestPowerup.y);
+        	}
+        	else {
+	        	// Look for nearest block to destroy if there are no powerups to pick up.
+	        	Point directionToNearestBlock = pathToNearestBlock(curPosition, map, bombMap);
+	        	if (directionToNearestBlock != null && directionToNearestBlock.x != 0 && directionToNearestBlock.y != 0) {
+	        		move = Move.getDirection(directionToNearestBlock.x, directionToNearestBlock.y);
+	        	}
+	        	// If next to block, evaluate safety of dropping a bomb at this location.
+	        	// Create a hypothetical bomb map of placing a bomb here and ensure there is a safe path out.
+	        	else {
+		        	int[][] bombMapCopy = new int[map.length][map[0].length];
+		        	SearchBomb searchBombsCopy[] = new SearchBomb[bombCount + 1];
+		        	for (int i = 0; i < bombCount; i++) {
+		        		searchBombsCopy[i] = searchBombs[i];
+		        	}
+		        	Bomb b = new Bomb(playerIndex, players[playerIndex].bombRange, 14);
+		        	SearchBomb hBomb = new SearchBomb(b, curPosition);
+		        	searchBombsCopy[bombCount] = hBomb;
+		        	HashMap<Point, Bomb> bombLocationsCopy = (HashMap<Point, Bomb>)bombLocations.clone();
+		        	bombLocationsCopy.put(curPosition, b);
+		        	generateBombMap(map, bombLocationsCopy, searchBombsCopy, bombMapCopy);
+		        	// If safe, then place bomb.
+		        	Point directionToSafeSpaceHyp = pathToSafeSpace(curPosition, map, bombMapCopy);
+		        	if (directionToSafeSpaceHyp != null) {
+		        		// Drop bomb.
+		        		bombMove = true;
+		        	}
+	        	}
+	        	
+        	}
+        	
+        } 
+        else if (phase == 1) {
+        	// Start evasive maneuvers once a path between the players is made.
+        	
+        }
         
         // Determines safe path based on bomb map(evades).
         Point directionToSafeSpace = pathToSafeSpace(curPosition, map, bombMap);
         
-        Move.Direction move;
-        if (directionToSafeSpace == null) {
-        	move = Move.still;
-        } else {
-        	move = Move.getDirection(directionToSafeSpace.x, directionToSafeSpace.y);
+        if (directionToSafeSpace != null) {
+        	if (directionToSafeSpace.x != 0 || directionToSafeSpace.y != 0) {
+        		// Override any other movement if under threat.
+        		move = Move.getDirection(directionToSafeSpace.x, directionToSafeSpace.y);
+        	}
         }
         
         /**
@@ -172,6 +225,95 @@ public class PlayerAI implements Player {
     		Point currentPoint = open.remove();
     		    		
     		if (bombMap[currentPoint.x][currentPoint.y] == 99) {
+    			
+    			Point previous = null;
+    			for (Point current = currentPoint; 
+    					current != start;
+    					previous = current, current = pathingBuffer[current.x][current.y]) {
+    				
+    			}
+    			
+    			if (previous == null) {
+    				return new Point(0, 0);
+    			} else {
+    				Point dP = new Point(previous.x - start.x, previous.y - start.y);
+    				return dP;
+    			}
+    		}
+    		
+    		for (Move.Direction direction : Move.getAllMovingMoves()) {
+    			int x = currentPoint.x + direction.dx;
+    			int y = currentPoint.y + direction.dy;
+    			
+    			Point neighbour = new Point(x, y);
+    			
+    			if (map[x][y].isWalkable() && map[x][y] != MapItems.EXPLOSION && pathingBuffer[x][y] == null) {
+    				open.add(neighbour);
+        			pathingBuffer[x][y] = currentPoint;
+    			}
+    			
+    		}
+    	
+    	}
+    	
+    	return null;
+    }
+    
+    public Point pathToNearestBlock(Point start, MapItems[][] map, int[][] bombMap) {
+    	resetPathingBuffer(pathingBuffer);
+    	
+    	Queue<Point> open = new LinkedList();
+    	open.add(start);
+    	
+    	while (!open.isEmpty()) {
+    		Point currentPoint = open.remove();
+    		    		
+    		if (map[currentPoint.x][currentPoint.y] == MapItems.BLOCK) {
+    			
+    			Point previous = null;
+    			for (Point current = currentPoint; 
+    					current != start;
+    					previous = current, current = pathingBuffer[current.x][current.y]) {
+    				
+    			}
+    			
+    			if (previous == null) {
+    				return new Point(0, 0);
+    			} else {
+    				Point dP = new Point(previous.x - start.x, previous.y - start.y);
+    				return dP;
+    			}
+    		}
+    		
+    		for (Move.Direction direction : Move.getAllMovingMoves()) {
+    			int x = currentPoint.x + direction.dx;
+    			int y = currentPoint.y + direction.dy;
+    			
+    			Point neighbour = new Point(x, y);
+    			
+    			if (map[x][y] != MapItems.BOMB && map[x][y] != MapItems.WALL && map[x][y] != MapItems.EXPLOSION
+    					&& pathingBuffer[x][y] == null) {
+    				open.add(neighbour);
+        			pathingBuffer[x][y] = currentPoint;
+    			}
+    			
+    		}
+    	
+    	}
+    	
+    	return null;
+    }
+    
+    public Point pathToNearestPowerup(Point start, MapItems[][] map, int[][] bombMap) {
+    	resetPathingBuffer(pathingBuffer);
+    	
+    	Queue<Point> open = new LinkedList();
+    	open.add(start);
+    	
+    	while (!open.isEmpty()) {
+    		Point currentPoint = open.remove();
+    		    		
+    		if (map[currentPoint.x][currentPoint.y] == MapItems.POWERUP) {
     			
     			Point previous = null;
     			for (Point current = currentPoint; 
@@ -347,6 +489,15 @@ public class PlayerAI implements Player {
     		return p.x;
     	} else {
     		return p.y;
+    	}
+    }
+    
+    void printBombMap(int[][] bombMap) {
+    	for (int i = 0; i < bombMap.length; i++) {
+    		for (int j = 0; j < bombMap[0].length; j++) {
+    			System.out.print (bombMap[i][j] + "   ");
+    		}
+    		System.out.println("");
     	}
     }
     
