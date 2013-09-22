@@ -111,7 +111,7 @@ public class PlayerAI implements Player {
         // Mine (destroy nearby blocks and collect power ups).
         if (phase == 0) {
         	if (isThereAPath(curPosition, enemyPosition, map)) {
-        		//phase = 1;
+        		phase = 1;
         	}
         	// Look for power ups within reach first.
         	Point directionToNearestPowerup = pathToNearestPowerup(curPosition, map, bombMap);
@@ -142,7 +142,7 @@ public class PlayerAI implements Player {
 //		        	printBombMap(bombMapCopy);
 		        	// If safe, then place bomb.
 		        	Point directionToSafeSpaceHyp = pathToSafeSpace(curPosition, map, bombMapCopy);
-		        	if (directionToSafeSpaceHyp != null) {
+		        	if (directionToSafeSpaceHyp != null && bombMap[curPosition.x][curPosition.y] == 99) {
 		        		// Drop bomb.
 		        		bombMove = true;
 		        	}
@@ -153,7 +153,123 @@ public class PlayerAI implements Player {
         } 
         else if (phase == 1) {
         	// Start evasive maneuvers once a path between the players is made.
-        	
+        	// Avoid enemy.
+        	if (manhattanDistance(curPosition, players[enemyIndex].position) < 5) {
+	        	Move.Direction bestMove = Move.still;
+	        	int maxDistance = 0;
+	        	for (Move.Direction moveImm : Move.getAllMovingMoves()) {
+	                int x = curPosition.x + moveImm.dx;
+	                int y = curPosition.y + moveImm.dy;
+	                Point currPos = new Point(x, y);
+	
+	                if (map[x][y].isWalkable() && map[x][y] != MapItems.EXPLOSION) {
+	                	int distance = manhattanDistance(currPos, players[enemyIndex].position);
+	                    if (distance >= maxDistance) {
+	                    	maxDistance = distance;
+	                    	move = moveImm;
+	                    }
+	                }
+	            }
+	        	int[][] bombMapCopy = new int[map.length][map[0].length];
+	        	SearchBomb searchBombsCopy[] = new SearchBomb[bombCount + 1];
+	        	for (int i = 0; i < bombCount; i++) {
+	        		searchBombsCopy[i] = searchBombs[i].clone();
+	        		searchBombsCopy[i].traversed = false;
+	        	}
+	        	Bomb b = new Bomb(playerIndex, players[playerIndex].bombRange, 14);
+	        	SearchBomb hBomb = new SearchBomb(b, curPosition);
+	        	searchBombsCopy[bombCount] = hBomb;
+	        	HashMap<Point, Bomb> bombLocationsCopy = (HashMap<Point, Bomb>)bombLocations.clone();
+	        	bombLocationsCopy.put(curPosition, b);
+	        	generateBombMap(map, bombLocationsCopy, searchBombsCopy, bombMapCopy);
+//	        	printBombMap(bombMapCopy);
+	        	// If safe, then place bomb.
+	        	Point directionToSafeSpaceHyp = pathToSafeSpace(curPosition, map, bombMapCopy);
+	        	if (directionToSafeSpaceHyp != null && bombMap[curPosition.x][curPosition.y] == 99) {
+	        		// Drop bomb.
+	        		bombMove = true;
+	        	}
+        	}
+        	else {
+        		// Recommence mining.
+        		Point directionToNearestPowerup = pathToNearestPowerup(curPosition, map, bombMap);
+            	if (directionToNearestPowerup != null) {
+            		move = Move.getDirection(directionToNearestPowerup.x, directionToNearestPowerup.y);
+            	}
+            	else {
+    	        	// Look for nearest block to destroy if there are no powerups to pick up.
+    	        	Point directionToNearestBlock = pathToNearestBlock(curPosition, map, bombMap);
+    	        	if (directionToNearestBlock != null && (directionToNearestBlock.x != 0 || directionToNearestBlock.y != 0)) {
+    	        		move = Move.getDirection(directionToNearestBlock.x, directionToNearestBlock.y);
+    	        	}
+    	        	// If next to block, evaluate safety of dropping a bomb at this location.
+    	        	// Create a hypothetical bomb map of placing a bomb here and ensure there is a safe path out.
+    	        	else if (directionToNearestBlock != null && directionToNearestBlock.x == 0 && directionToNearestBlock.y == 0){
+    		        	int[][] bombMapCopy = new int[map.length][map[0].length];
+    		        	SearchBomb searchBombsCopy[] = new SearchBomb[bombCount + 1];
+    		        	for (int i = 0; i < bombCount; i++) {
+    		        		searchBombsCopy[i] = searchBombs[i].clone();
+    		        		searchBombsCopy[i].traversed = false;
+    		        	}
+    		        	Bomb b = new Bomb(playerIndex, players[playerIndex].bombRange, 14);
+    		        	SearchBomb hBomb = new SearchBomb(b, curPosition);
+    		        	searchBombsCopy[bombCount] = hBomb;
+    		        	HashMap<Point, Bomb> bombLocationsCopy = (HashMap<Point, Bomb>)bombLocations.clone();
+    		        	bombLocationsCopy.put(curPosition, b);
+    		        	generateBombMap(map, bombLocationsCopy, searchBombsCopy, bombMapCopy);
+//    		        	printBombMap(bombMapCopy);
+    		        	// If safe, then place bomb.
+    		        	Point directionToSafeSpaceHyp = pathToSafeSpace(curPosition, map, bombMapCopy);
+    		        	if (directionToSafeSpaceHyp != null && bombMap[curPosition.x][curPosition.y] == 99) {
+    		        		// Drop bomb.
+    		        		bombMove = true;
+    		        	}
+    	        	}
+    	        	else if (true) {
+//    	        		phase = 2;
+    	        	}
+    	        	
+            	}
+        	}
+        }
+        else {
+        	// When there are no blocks left over, run from player and drop bombs when safe.
+        	if (manhattanDistance(curPosition, players[enemyIndex].position) < players[playerIndex].bombRange) {
+	        	Move.Direction bestMove = Move.still;
+	        	int maxDistance = 0;
+	        	for (Move.Direction moveImm : Move.getAllMovingMoves()) {
+	                int x = curPosition.x + moveImm.dx;
+	                int y = curPosition.y + moveImm.dy;
+	                Point currPos = new Point(x, y);
+	
+	                if (map[x][y].isWalkable() && map[x][y] != MapItems.EXPLOSION) {
+	                	int distance = manhattanDistance(currPos, players[enemyIndex].position);
+	                    if (distance >= maxDistance) {
+	                    	maxDistance = distance;
+	                    	move = moveImm;
+	                    }
+	                }
+	            }
+	        	int[][] bombMapCopy = new int[map.length][map[0].length];
+	        	SearchBomb searchBombsCopy[] = new SearchBomb[bombCount + 1];
+	        	for (int i = 0; i < bombCount; i++) {
+	        		searchBombsCopy[i] = searchBombs[i].clone();
+	        		searchBombsCopy[i].traversed = false;
+	        	}
+	        	Bomb b = new Bomb(playerIndex, players[playerIndex].bombRange, 14);
+	        	SearchBomb hBomb = new SearchBomb(b, curPosition);
+	        	searchBombsCopy[bombCount] = hBomb;
+	        	HashMap<Point, Bomb> bombLocationsCopy = (HashMap<Point, Bomb>)bombLocations.clone();
+	        	bombLocationsCopy.put(curPosition, b);
+	        	generateBombMap(map, bombLocationsCopy, searchBombsCopy, bombMapCopy);
+//	        	printBombMap(bombMapCopy);
+	        	// If safe, then place bomb.
+	        	Point directionToSafeSpaceHyp = pathToSafeSpace(curPosition, map, bombMapCopy);
+	        	if (directionToSafeSpaceHyp != null && bombMap[curPosition.x][curPosition.y] == 99) {
+	        		// Drop bomb.
+	        		bombMove = true;
+	        	}
+        	}
         }
         
         // Determines safe path based on bomb map(evades).
