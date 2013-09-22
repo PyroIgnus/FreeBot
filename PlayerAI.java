@@ -103,7 +103,7 @@ public class PlayerAI implements Player {
         	currentBombIndex++;
         }
         
-        generateBombMap(map, bombLocations, searchBombs, bombMap);
+        generateBombMap(map, searchBombs, bombMap);
         
         Move.Direction move = Move.still;	// Default don't move.
         
@@ -136,9 +136,7 @@ public class PlayerAI implements Player {
 		        	Bomb b = new Bomb(playerIndex, players[playerIndex].bombRange, 14);
 		        	SearchBomb hBomb = new SearchBomb(b, curPosition);
 		        	searchBombsCopy[bombCount] = hBomb;
-		        	HashMap<Point, Bomb> bombLocationsCopy = (HashMap<Point, Bomb>)bombLocations.clone();
-		        	bombLocationsCopy.put(curPosition, b);
-		        	generateBombMap(map, bombLocationsCopy, searchBombsCopy, bombMapCopy);
+		        	generateBombMap(map, searchBombsCopy, bombMapCopy);
 		        	// If safe, then place bomb.
 		        	Point directionToSafeSpaceHyp = pathToSafeSpace(curPosition, map, bombMapCopy);
 		        	if (directionToSafeSpaceHyp != null && bombMap[curPosition.x][curPosition.y] == 99) {
@@ -178,10 +176,7 @@ public class PlayerAI implements Player {
 	        	Bomb b = new Bomb(playerIndex, players[playerIndex].bombRange, 14);
 	        	SearchBomb hBomb = new SearchBomb(b, curPosition);
 	        	searchBombsCopy[bombCount] = hBomb;
-	        	HashMap<Point, Bomb> bombLocationsCopy = (HashMap<Point, Bomb>)bombLocations.clone();
-	        	bombLocationsCopy.put(curPosition, b);
-	        	generateBombMap(map, bombLocationsCopy, searchBombsCopy, bombMapCopy);
-//	        	printBombMap(bombMapCopy);
+	        	generateBombMap(map, searchBombsCopy, bombMapCopy);
 	        	// If safe, then place bomb.
 	        	Point directionToSafeSpaceHyp = pathToSafeSpace(curPosition, map, bombMapCopy);
 	        	if (directionToSafeSpaceHyp != null && bombMap[curPosition.x][curPosition.y] == 99) {
@@ -213,9 +208,7 @@ public class PlayerAI implements Player {
     		        	Bomb b = new Bomb(playerIndex, players[playerIndex].bombRange, 14);
     		        	SearchBomb hBomb = new SearchBomb(b, curPosition);
     		        	searchBombsCopy[bombCount] = hBomb;
-    		        	HashMap<Point, Bomb> bombLocationsCopy = (HashMap<Point, Bomb>)bombLocations.clone();
-    		        	bombLocationsCopy.put(curPosition, b);
-    		        	generateBombMap(map, bombLocationsCopy, searchBombsCopy, bombMapCopy);
+    		        	generateBombMap(map, searchBombsCopy, bombMapCopy);
 //    		        	printBombMap(bombMapCopy);
     		        	// If safe, then place bomb.
     		        	Point directionToSafeSpaceHyp = pathToSafeSpace(curPosition, map, bombMapCopy);
@@ -265,7 +258,9 @@ public class PlayerAI implements Player {
         	else {
         		// Gravitate towards centre of map.
         		Point directionToCentre = pathToCentre(curPosition, map, bombMap);
-        		move = Move.getDirection(directionToCentre.x, directionToCentre.y);
+        		if (directionToCentre != null) {
+        			move = Move.getDirection(directionToCentre.x, directionToCentre.y);
+        		}
         	}
         	int[][] bombMapCopy = new int[map.length][map[0].length];
         	SearchBomb searchBombsCopy[] = new SearchBomb[bombCount + 1];
@@ -276,10 +271,7 @@ public class PlayerAI implements Player {
         	Bomb b = new Bomb(playerIndex, players[playerIndex].bombRange, 14);
         	SearchBomb hBomb = new SearchBomb(b, curPosition);
         	searchBombsCopy[bombCount] = hBomb;
-        	HashMap<Point, Bomb> bombLocationsCopy = (HashMap<Point, Bomb>)bombLocations.clone();
-        	bombLocationsCopy.put(curPosition, b);
-        	generateBombMap(map, bombLocationsCopy, searchBombsCopy, bombMapCopy);
-//        	printBombMap(bombMapCopy);
+        	generateBombMap(map, searchBombsCopy, bombMapCopy);
         	// If safe, then place bomb.
         	Point directionToSafeSpaceHyp = pathToSafeSpace(curPosition, map, bombMapCopy);
         	if (directionToSafeSpaceHyp != null && bombMap[curPosition.x][curPosition.y] == 99) {
@@ -700,7 +692,7 @@ public class PlayerAI implements Player {
     	}
     }
     
-    void spreadExplosion(MapItems[][] items, HashMap<Point, Bomb> bombHash, SearchBomb[] bombs,
+    void spreadExplosion(MapItems[][] items, SearchBomb[] bombs,
     		int[][] bombMap, boolean[] blocked, SearchBomb bomb, Point p, int direction) {
     	if (!blocked[direction]) {
 			bombMap[p.x][p.y] = Math.min(bombMap[p.x][p.y], bomb.timeToExplosion);
@@ -716,12 +708,12 @@ public class PlayerAI implements Player {
 					}
 				}
 				foundBomb.timeToExplosion = bomb.timeToExplosion;
-				generateBombMap(items, bombHash, bombs, bombMap, foundBomb);
+				generateBombMap(items, bombs, bombMap, foundBomb);
 			}
 		}
     }
     
-    void generateBombMap(MapItems[][] items, HashMap<Point, Bomb> bombHash, SearchBomb[] bombs,
+    void generateBombMap(MapItems[][] items, SearchBomb[] bombs,
     		int[][] bombMap, SearchBomb bomb) {
     	if (!bomb.traversed) {
 			bomb.traversed = true;
@@ -735,14 +727,14 @@ public class PlayerAI implements Player {
     				Point p1 = changePointElement(bomb.location, axis, p1DAxis);
     				Point p2 = changePointElement(bomb.location, axis, p2DAxis);
     				
-    				spreadExplosion(items, bombHash, bombs, bombMap, blocked, bomb, p1, 0);
-    				spreadExplosion(items, bombHash, bombs, bombMap, blocked, bomb, p2, 1);
+    				spreadExplosion(items, bombs, bombMap, blocked, bomb, p1, 0);
+    				spreadExplosion(items, bombs, bombMap, blocked, bomb, p2, 1);
     			}
     		}
 		}
     }
     
-    void generateBombMap(MapItems[][] items, HashMap<Point, Bomb> bombHash, SearchBomb[] bombs,
+    void generateBombMap(MapItems[][] items, SearchBomb[] bombs,
     		int[][] bombMap) {
     	Arrays.sort(bombs, new Comparator<SearchBomb>() {
     	    public int compare(SearchBomb a, SearchBomb b) {
@@ -753,7 +745,7 @@ public class PlayerAI implements Player {
     	resetBombMap(bombMap, 99);
     	
     	for (int i = 0; i < bombs.length; i++) {
-    		generateBombMap(items, bombHash, bombs, bombMap, bombs[i]);
+    		generateBombMap(items, bombs, bombMap, bombs[i]);
     	}
     
     }
