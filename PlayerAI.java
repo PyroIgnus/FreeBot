@@ -121,16 +121,17 @@ public class PlayerAI implements Player {
         	else {
 	        	// Look for nearest block to destroy if there are no powerups to pick up.
 	        	Point directionToNearestBlock = pathToNearestBlock(curPosition, map, bombMap);
-	        	if (directionToNearestBlock != null && directionToNearestBlock.x != 0 && directionToNearestBlock.y != 0) {
+	        	if (directionToNearestBlock != null && (directionToNearestBlock.x != 0 || directionToNearestBlock.y != 0)) {
 	        		move = Move.getDirection(directionToNearestBlock.x, directionToNearestBlock.y);
 	        	}
 	        	// If next to block, evaluate safety of dropping a bomb at this location.
 	        	// Create a hypothetical bomb map of placing a bomb here and ensure there is a safe path out.
-	        	else {
+	        	else if (directionToNearestBlock != null && directionToNearestBlock.x == 0 && directionToNearestBlock.y == 0){
 		        	int[][] bombMapCopy = new int[map.length][map[0].length];
 		        	SearchBomb searchBombsCopy[] = new SearchBomb[bombCount + 1];
 		        	for (int i = 0; i < bombCount; i++) {
-		        		searchBombsCopy[i] = searchBombs[i];
+		        		searchBombsCopy[i] = searchBombs[i].clone();
+		        		searchBombsCopy[i].traversed = false;
 		        	}
 		        	Bomb b = new Bomb(playerIndex, players[playerIndex].bombRange, 14);
 		        	SearchBomb hBomb = new SearchBomb(b, curPosition);
@@ -268,7 +269,8 @@ public class PlayerAI implements Player {
     	while (!open.isEmpty()) {
     		Point currentPoint = open.remove();
     		    		
-    		if (map[currentPoint.x][currentPoint.y] == MapItems.BLOCK) {
+    		if (map[currentPoint.x + 1][currentPoint.y] == MapItems.BLOCK || map[currentPoint.x - 1][currentPoint.y] == MapItems.BLOCK
+    				|| map[currentPoint.x][currentPoint.y + 1] == MapItems.BLOCK || map[currentPoint.x][currentPoint.y - 1] == MapItems.BLOCK) {
     			
     			Point previous = null;
     			for (Point current = currentPoint; 
@@ -292,7 +294,7 @@ public class PlayerAI implements Player {
     			Point neighbour = new Point(x, y);
     			
     			if (map[x][y] != MapItems.BOMB && map[x][y] != MapItems.WALL && map[x][y] != MapItems.EXPLOSION
-    					&& pathingBuffer[x][y] == null) {
+    					&& pathingBuffer[x][y] == null && bombMap[x][y] == 99) {
     				open.add(neighbour);
         			pathingBuffer[x][y] = currentPoint;
     			}
@@ -336,7 +338,8 @@ public class PlayerAI implements Player {
     			
     			Point neighbour = new Point(x, y);
     			
-    			if (map[x][y].isWalkable() && map[x][y] != MapItems.EXPLOSION && pathingBuffer[x][y] == null) {
+    			if (map[x][y].isWalkable() && map[x][y] != MapItems.EXPLOSION && pathingBuffer[x][y] == null
+    					&& bombMap[x][y] == 99) {
     				open.add(neighbour);
         			pathingBuffer[x][y] = currentPoint;
     			}
@@ -495,7 +498,7 @@ public class PlayerAI implements Player {
     void printBombMap(int[][] bombMap) {
     	for (int i = 0; i < bombMap.length; i++) {
     		for (int j = 0; j < bombMap[0].length; j++) {
-    			System.out.print (bombMap[i][j] + "   ");
+    			System.out.print (bombMap[j][i] + "   ");
     		}
     		System.out.println("");
     	}

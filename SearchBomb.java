@@ -29,4 +29,11 @@ public class SearchBomb {
 		traversed = false;
 	}
 	
+	public SearchBomb clone() {
+		SearchBomb copy = new SearchBomb(this.bomb, this.location);
+		copy.timeToExplosion = this.timeToExplosion;
+		copy.traversed = this.traversed;
+		return copy;
+	}
+	
 }
